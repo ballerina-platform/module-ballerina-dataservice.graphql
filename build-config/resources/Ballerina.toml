@@ -1,0 +1,12 @@
+[package]
+org = "ballerina"
+name = "dataservice.graphql"
+version = "@toml.version@"
+authors = ["Ballerina"]
+keywords = ["dataservice", "persist", "graphql", "Type/Library", "Area/Database", "Name/Data Service GraphQL"]
+repository = "https://github.com/ballerina-platform/module-ballerina-dataservice.graphql"
+license = ["Apache-2.0"]
+distribution = "2201.14.0"
+
+[platform.java25]
+graalvmCompatible = true
