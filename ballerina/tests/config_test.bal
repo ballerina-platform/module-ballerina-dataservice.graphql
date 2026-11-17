@@ -13,4 +13,13 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
+import ballerina/test;
 
+@test:Config
+function testConfigDefaults() {
+    Config config = {};
+    test:assertEquals(config.port, 9090);
+    test:assertEquals(config.pageSize, 100);
+    test:assertEquals(config.maxPageSize, 1000);
+    test:assertEquals(config.serviceConfig.cors.allowOrigins, []);
+}
