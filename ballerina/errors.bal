@@ -15,6 +15,8 @@
 // under the License.
 import ballerina/dataservice;
 import ballerina/graphql;
+import ballerina/log;
+import ballerina/persist;
 
 # An error that a generated service returns from a field: its message is the message of the error category, and
 # `extensions.code` is the category's code.
@@ -67,5 +69,63 @@ isolated function toInternalError(error err, string entity, string operation, da
     return toError(dataservice:toInternalErrorBody(err, entity, operation));
 }
 
-isolated function toError(dataservice:DataserviceError body) returns Error =>
+# Maps an error from creating records, or from reading the created records back, to its error.
+#
+# + err - The error the persist client returned
+# + entity - The name of the entity
+# + return - The `CONFLICT`, `CONSTRAINT_VIOLATION` or `INTERNAL` error
+public isolated function toCreateError(error err, string entity) returns Error {
+    dataservice:DataserviceError body = dataservice:toErrorBody(err, entity, operation = CREATE);
+    return body.code == dataservice:CONFLICT || body.code == dataservice:CONSTRAINT_VIOLATION ? toError(body) :
+        toInternalError(err, entity, CREATE, body);
+}
+
+# Maps an error from updating a record to its error. An update that is saved but cannot be read back has no error,
+# and is logged.
+#
+# + err - The error the persist client returned
+# + entity - The name of the entity
+# + key - The values of the record's key fields, in key order
+# + return - The `NOT_FOUND`, `CONFLICT`, `CONSTRAINT_VIOLATION` or `INTERNAL` error, or `()`
+public isolated function toUpdateError(error err, string entity, dataservice:KeyValue[] key) returns Error? {
+    if err is persist:ReadBackError {
+        log:printError("A data service update was saved but could not be read back.", 'error = err, entity = entity,
+                operation = PATCH_ONE);
+        return ();
+    }
+    dataservice:DataserviceError body = dataservice:toErrorBody(err, entity, key, PATCH_ONE);
+    return body.code == dataservice:INTERNAL ? toInternalError(err, entity, PATCH_ONE, body) : toError(body);
+}
+
+# Maps an error from deleting a record to its error.
+#
+# + err - The error the persist client returned
+# + entity - The name of the entity
+# + key - The values of the record's key fields, in key order
+# + return - The `NOT_FOUND`, `CONSTRAINT_VIOLATION` or `INTERNAL` error
+public isolated function toDeleteError(error err, string entity, dataservice:KeyValue[] key) returns Error {
+    dataservice:DataserviceError body = dataservice:toErrorBody(err, entity, key, DELETE_ONE);
+    return body.code == dataservice:NOT_FOUND || body.code == dataservice:CONSTRAINT_VIOLATION ? toError(body) :
+        toInternalError(err, entity, DELETE_ONE, body);
+}
+
+# Maps `null` on an input field that cannot hold it to the `INVALID_INPUT` error.
+#
+# + entity - The name of the entity
+# + 'field - The name of the field
+# + return - The `INVALID_INPUT` error
+public isolated function toNullError(string entity, string 'field) returns Error => toError({
+    code: dataservice:INVALID_INPUT,
+    message: string `The field '${'field}' of the entity '${entity}' cannot be null.`
+});
+
+# Maps an error body of `ballerina/dataservice`, such as from `dataservice:checkCreateSize`, to its error.
+#
+# + body - The error body
+# + return - The error, with the body's message and code
+public isolated function toError(dataservice:DataserviceError body) returns Error =>
     error Error(body.message, message = body.message, extensions = {code: body.code});
+
+const CREATE = "create";
+const PATCH_ONE = "patch one";
+const DELETE_ONE = "delete one";

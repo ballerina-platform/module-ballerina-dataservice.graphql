@@ -46,3 +46,46 @@ function testGetErrorOtherwiseInternal() {
     test:assertEquals(toGetError(error persist:ConstraintViolationError("fk"), "Employee", [1]).detail().extensions,
             {code: "INTERNAL"});
 }
+
+@test:Config
+function testCreateErrors() {
+    test:assertEquals(toCreateError(error persist:AlreadyExistsError("dup"), "Employee").detail(), {
+        message: "A record that conflicts with an existing record of the entity 'Employee' already exists.",
+        extensions: {code: "CONFLICT"}
+    });
+    test:assertEquals(toCreateError(error persist:ConstraintViolationError("fk"), "Employee").detail(), {
+        message: "The operation violates a constraint of the entity 'Employee'.",
+        extensions: {code: "CONSTRAINT_VIOLATION"}
+    });
+    test:assertEquals(toCreateError(error persist:NotFoundError("gone"), "Employee").detail().extensions,
+            {code: "INTERNAL"});
+}
+
+@test:Config
+function testUpdateErrors() {
+    test:assertEquals((<Error>toUpdateError(error persist:NotFoundError("no row"), "Employee", [7])).detail(), {
+        message: "A record with the key '7' does not exist for the entity 'Employee'.",
+        extensions: {code: "NOT_FOUND"}
+    });
+    test:assertEquals((<Error>toUpdateError(error persist:AlreadyExistsError("dup"), "Employee", [7])).detail().extensions,
+            {code: "CONFLICT"});
+    test:assertTrue(toUpdateError(error persist:ReadBackError("gone"), "Employee", [7]) is ());
+}
+
+@test:Config
+function testDeleteErrors() {
+    test:assertEquals(toDeleteError(error persist:NotFoundError("no row"), "Employee", [7]).detail().extensions,
+            {code: "NOT_FOUND"});
+    test:assertEquals(toDeleteError(error persist:ConstraintViolationError("fk"), "Employee", [7]).detail().extensions,
+            {code: "CONSTRAINT_VIOLATION"});
+    test:assertEquals(toDeleteError(error persist:Error("down"), "Employee", [7]).detail().extensions,
+            {code: "INTERNAL"});
+}
+
+@test:Config
+function testNullError() {
+    test:assertEquals(toNullError("Employee", "name").detail(), {
+        message: "The field 'name' of the entity 'Employee' cannot be null.",
+        extensions: {code: "INVALID_INPUT"}
+    });
+}
