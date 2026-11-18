@@ -19,8 +19,13 @@ import ballerina/graphql;
 # The settings of the generated service that vary by environment.
 #
 # + cors - The CORS settings; no cross-origin request is allowed by default
+# + maxQueryDepth - The deepest document the service runs; GraphiQL's introspection query has depth 13
+# + maxQueryComplexity - The largest complexity of a document the service runs; a field counts 1, and a to-many
+# relation field 20
 public type ServiceConfig record {|
     graphql:CorsConfig cors = {};
+    int maxQueryDepth = 15;
+    int maxQueryComplexity = 100;
 |};
 
 # The runtime settings of a generated GraphQL data service, the type of its configurable `dataserviceConfig`.
@@ -50,3 +55,18 @@ public type AuthConfig record {|
     graphql:ListenerConfiguration listenerConfig = {};
     AuthServiceConfig serviceConfig;
 |};
+
+# Checks the limits of a service at startup, so that a value out of range stops the program.
+#
+# + config - The settings of the service
+# + return - An error naming the first limit below 1
+public isolated function checkLimits(ServiceConfig|AuthServiceConfig config) returns error? {
+    foreach [string, int] [name, value] in [
+            ["maxQueryDepth", config.maxQueryDepth], ["maxQueryComplexity", config.maxQueryComplexity]] {
+        // ballerina/graphql takes a complexity of 0 as no limit, which the service does not allow.
+        if value < 1 {
+            return error(string `The configurable value 'dataserviceConfig.serviceConfig.${name}' must be at least 1, ` +
+                    string `found ${value}.`);
+        }
+    }
+}

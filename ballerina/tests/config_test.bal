@@ -22,4 +22,19 @@ function testConfigDefaults() {
     test:assertEquals(config.pageSize, 100);
     test:assertEquals(config.maxPageSize, 1000);
     test:assertEquals(config.serviceConfig.cors.allowOrigins, []);
+    test:assertEquals(config.serviceConfig.maxQueryDepth, 15);
+    test:assertEquals(config.serviceConfig.maxQueryComplexity, 100);
+}
+
+@test:Config
+function testCheckLimits() {
+    test:assertEquals(checkLimits({}), ());
+    test:assertEquals(checkLimits({maxQueryDepth: 1, maxQueryComplexity: 1}), ());
+    test:assertEquals(checkLimits(<AuthServiceConfig>{auth: []}), ());
+    error? depth = checkLimits({maxQueryDepth: 0});
+    test:assertEquals(depth is error ? depth.message() : (),
+            "The configurable value 'dataserviceConfig.serviceConfig.maxQueryDepth' must be at least 1, found 0.");
+    error? complexity = checkLimits(<AuthServiceConfig>{maxQueryComplexity: -5, auth: []});
+    test:assertEquals(complexity is error ? complexity.message() : (),
+            "The configurable value 'dataserviceConfig.serviceConfig.maxQueryComplexity' must be at least 1, found -5.");
 }
