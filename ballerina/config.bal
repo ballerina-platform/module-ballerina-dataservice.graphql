@@ -19,9 +19,8 @@ import ballerina/graphql;
 # The settings of the generated service that vary by environment.
 #
 # + cors - The CORS settings; no cross-origin request is allowed by default
-# + maxQueryDepth - The deepest document the service runs; GraphiQL's introspection query has depth 13
-# + maxQueryComplexity - The largest complexity of a document the service runs; a field counts 1, and a to-many
-# relation field 20
+# + maxQueryDepth - The deepest document the service runs
+# + maxQueryComplexity - The largest complexity of a document the service runs
 public type ServiceConfig record {|
     graphql:CorsConfig cors = {};
     int maxQueryDepth = 15;
