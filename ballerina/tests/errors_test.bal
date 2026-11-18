@@ -29,3 +29,20 @@ function testListErrorAnswersOtherCategoriesAsInternal() {
     Error err = toListError(error persist:NotFoundError("no row"), "Employee");
     test:assertEquals(err.detail().extensions, {code: "INTERNAL"});
 }
+
+@test:Config
+function testGetErrorNotFound() {
+    Error err = toGetError(error persist:NotFoundError("no row"), "Assignment", ["ATLAS", 1]);
+    test:assertEquals(err.detail(), {
+        message: "A record with the key 'ATLAS/1' does not exist for the entity 'Assignment'.",
+        extensions: {code: "NOT_FOUND"}
+    });
+}
+
+@test:Config
+function testGetErrorOtherwiseInternal() {
+    test:assertEquals(toGetError(error persist:Error("connection refused"), "Employee", [1]).detail().extensions,
+            {code: "INTERNAL"});
+    test:assertEquals(toGetError(error persist:ConstraintViolationError("fk"), "Employee", [1]).detail().extensions,
+            {code: "INTERNAL"});
+}

@@ -29,5 +29,43 @@ public type Error distinct graphql:ServiceError;
 public isolated function toListError(error err, string entity, string operation = "get many") returns Error =>
     toError(dataservice:toInternalErrorBody(err, entity, operation));
 
+# Maps an error from reading one record to the `NOT_FOUND` or `INTERNAL` error.
+#
+# + err - The error the persist client returned
+# + entity - The name of the entity
+# + key - The values of the record's key fields, in key order
+# + operation - The name of the operation, which is logged with the error
+# + return - The `NOT_FOUND` or `INTERNAL` error
+public isolated function toGetError(error err, string entity, dataservice:KeyValue[] key, string operation = "get one")
+        returns Error {
+    dataservice:DataserviceError body = dataservice:toErrorBody(err, entity, key, operation);
+    return body.code == dataservice:NOT_FOUND ? toError(body) : toInternalError(err, entity, operation, body);
+}
+
+# Maps a value that is not in its format to the `INVALID_INPUT` error.
+#
+# + err - The error from the `ballerina/dataservice` conversion
+# + entity - The name of the entity
+# + 'field - The name of the field
+# + return - The `INVALID_INPUT` error
+public isolated function toInvalidInput(dataservice:ConversionError err, string entity, string 'field) returns Error =>
+    toError({
+        code: dataservice:INVALID_INPUT,
+        message: string `The field '${'field}' of the entity '${entity}' is not ${err.detail().format}.`
+    });
+
+// A body of another category is replaced, and logged as internal, so that the code tells the category.
+isolated function toInternalError(error err, string entity, string operation, dataservice:DataserviceError body)
+        returns Error {
+    if body.code == dataservice:INTERNAL {
+        return toError(body);
+    }
+    if body.code == dataservice:CONSTRAINT_VIOLATION {
+        // toErrorBody has already logged it.
+        return toError({code: dataservice:INTERNAL, message: dataservice:INTERNAL_MESSAGE});
+    }
+    return toError(dataservice:toInternalErrorBody(err, entity, operation));
+}
+
 isolated function toError(dataservice:DataserviceError body) returns Error =>
     error Error(body.message, message = body.message, extensions = {code: body.code});
