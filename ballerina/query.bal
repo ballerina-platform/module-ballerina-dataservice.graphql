@@ -31,6 +31,57 @@ public isolated function toQuery(dataservice:Entity entity, dataservice:PageConf
             entity.name);
 }
 
+# Checks the filter, sort and page arguments of a to-many relation and builds the query of one record's related
+# records, through `dataservice:toRelatedQuery`.
+#
+# + entity - The entity description of the record
+# + relation - The relation field
+# + row - The record, holding at least the fields that link the relation
+# + config - The page sizes of the data service
+# + filter - The `filter` argument
+# + sort - The `sort` argument, each entry naming one field
+# + size - The `size` argument
+# + offset - The `offset` argument
+# + return - The query, or the `INVALID_INPUT` error
+public isolated function toRelatedQuery(dataservice:Entity entity, string relation, map<anydata> row,
+        dataservice:PageConfig config, record {}? filter, record {}[]? sort, int? size, int? offset)
+        returns dataservice:Query|Error {
+    string[]? fields = check toSortFields(sort);
+    string target = from dataservice:Relation related in entity.relations
+        where related.'field == relation
+        select related.target.name;
+    return toCheckedQuery(dataservice:toRelatedQuery(entity, relation, row, config, toConditions(filter), fields,
+            size, offset), target);
+}
+
+# Puts the related records of a dataloader batch in the order of its links.
+#
+# + rows - The related records, as `dataservice:toIncludeQuery` read them
+# + entity - The entity description of the records that hold the relation
+# + relation - The relation field, a to-one relation
+# + links - The links of the batch: records holding the fields that link the relation
+# + return - The related record of each link, or `()` for a link without one
+public isolated function toKeyOrder(map<anydata>[] rows, dataservice:Entity entity, string relation,
+        map<anydata>[] links) returns (map<anydata>?)[] {
+    dataservice:Relation[] related = from dataservice:Relation candidate in entity.relations
+        where candidate.'field == relation
+        select candidate;
+    if related.length() == 0 {
+        panic error(string `The entity '${entity.name}' has no relation '${relation}'.`);
+    }
+    string[] fields = related[0].fields;
+    string[] targetFields = related[0].targetFields;
+    map<map<anydata>> byLink = {};
+    foreach map<anydata> row in rows {
+        byLink[linkText(from string name in targetFields select row[name])] = row;
+    }
+    return from map<anydata> link in links
+        select byLink[linkText(from string name in fields select link[name])];
+}
+
+// The text form of a link, as a key of a map; `toJsonString` keeps a string's quotes, so `1` and `"1"` differ.
+isolated function linkText(anydata[] values) returns string => values.toJsonString();
+
 isolated function toCheckedQuery(dataservice:Query|dataservice:DataserviceError|dataservice:ConversionError query,
         string entity) returns dataservice:Query|Error {
     if query is dataservice:DataserviceError {
