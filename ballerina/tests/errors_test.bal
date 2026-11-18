@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 import ballerina/dataservice;
+import ballerina/io;
 import ballerina/persist;
 import ballerina/test;
 
@@ -88,4 +89,45 @@ function testNullError() {
         message: "The field 'name' of the entity 'Employee' cannot be null.",
         extensions: {code: "INVALID_INPUT"}
     });
+}
+
+@test:Config {dataProvider: loggedErrors}
+function testErrorIsLoggedOnceWithTheEntityAndOperation(string message, function (error err) returns Error? mapper,
+        string expected) returns error? {
+    Error? mapped = mapper(error persist:ConstraintViolationError(message));
+    test:assertTrue(mapped is Error, message);
+    string[] lines = from string line in check io:fileReadLines("target/errors_test.log")
+        where line.includes(message)
+        select line;
+    test:assertEquals(lines.length(), 1, message);
+    test:assertTrue(lines[0].includes(expected), lines[0]);
+}
+
+function loggedErrors() returns [string, function (error err) returns Error?, string][] => [
+    ["list failed", err => toListError(err, "Employee"), "entity=\"Employee\" operation=\"get many\""],
+    ["related failed", err => toListError(err, "Employee", "get related"),
+        "entity=\"Employee\" operation=\"get related\""],
+    ["get failed", err => toGetError(err, "Employee", [1]), "entity=\"Employee\" operation=\"get one\""],
+    ["create failed", err => toCreateError(err, "Employee"), "entity=\"Employee\" operation=\"create\""],
+    ["update failed", err => toUpdateError(err, "Employee", [1]),
+        "entity=\"Employee\" operation=\"patch one\""],
+    ["delete failed", err => toDeleteError(err, "Employee", [1]),
+        "entity=\"Employee\" operation=\"delete one\""]
+];
+
+@test:Config
+function testReadBackIsLoggedWithoutAnError() returns error? {
+    test:assertTrue(toUpdateError(error persist:ReadBackError("read back failed"), "Employee", [1]) is ());
+    string[] lines = from string line in check io:fileReadLines("target/errors_test.log")
+        where line.includes("read back failed")
+        select line;
+    test:assertEquals(lines.length(), 1);
+    test:assertTrue(lines[0].includes("entity=\"Employee\" operation=\"patch one\""), lines[0]);
+}
+
+@test:Config
+function testInternalErrorHidesTheCause() {
+    Error err = toListError(error persist:Error("jdbc:h2 Table \"EMPLOYEE\" not found"), "Employee");
+    test:assertEquals(err.message(), "An internal error occurred.");
+    test:assertFalse(err.detail().toString().includes("jdbc"));
 }
