@@ -32,3 +32,21 @@ public type Config record {|
     graphql:ListenerConfiguration listenerConfig = {};
     ServiceConfig serviceConfig = {};
 |};
+
+# The settings of a generated service with auth.
+#
+# + auth - The authentication providers, such as a JWT validator
+public type AuthServiceConfig record {|
+    *ServiceConfig;
+    graphql:ListenerAuthConfig[] auth;
+|};
+
+# The runtime settings of a generated GraphQL data service with auth.
+#
+# + listenerConfig - The other settings of the listener, such as TLS
+# + serviceConfig - The settings of the service, with the authentication providers
+public type AuthConfig record {|
+    *dataservice:Config;
+    graphql:ListenerConfiguration listenerConfig = {};
+    AuthServiceConfig serviceConfig;
+|};
