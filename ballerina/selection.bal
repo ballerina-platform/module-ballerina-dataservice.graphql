@@ -24,8 +24,12 @@ isolated function toSelectedNames(graphql:Field 'field) returns string[] {
         select sub;
     if items.length() > 0 {
         selection = [];
+        // A spread push of `graphql:Field` values stops the Ballerina 2201.14.0 compiler while it compiles
+        // ballerina/graphql, so each subfield is pushed on its own.
         foreach graphql:Field sub in items {
-            selection.push(...subfieldsOf(sub));
+            foreach graphql:Field subfield in subfieldsOf(sub) {
+                selection.push(subfield);
+            }
         }
     }
     return from graphql:Field sub in selection
