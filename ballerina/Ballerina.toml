@@ -8,12 +8,5 @@ repository = "https://github.com/ballerina-platform/module-ballerina-dataservice
 license = ["Apache-2.0"]
 distribution = "2201.14.0"
 
-# ballerina/graphql 1.19.2 is not released yet: it is a local build of module-ballerina-graphql#2610 and #2611.
-[[dependency]]
-org = "ballerina"
-name = "graphql"
-version = "1.19.2"
-repository = "local"
-
 [platform.java25]
 graalvmCompatible = true
