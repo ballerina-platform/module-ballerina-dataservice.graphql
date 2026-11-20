@@ -52,10 +52,16 @@ def stripBallerinaExtensionVersion(String extVersion) {
     }
 }
 
+dependencies {
+    ballerinaStdLibs "io.ballerina.lib:dataservice-ballerina:${stdlibDataserviceVersion}"
+}
+
 ballerina {
     packageOrganization = packageOrg
     module = packageName
     langVersion = ballerinaLangVersion
+    platform = "any"
+    testCoverageParam = "--code-coverage --coverage-format=xml"
 }
 
 task updateTomlFiles {
