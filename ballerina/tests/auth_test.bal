@@ -15,6 +15,7 @@
 // under the License.
 import ballerina/graphql;
 import ballerina/http;
+import ballerina/scan;
 import ballerina/test;
 
 final Authenticator basicAuth = check new ([{fileUserStoreConfig: {}}]);
@@ -64,6 +65,7 @@ function testBearerCredentialIsNotTriedOnAUserStore() {
     test:assertTrue(basicAuth.authenticate(new, bearer) is graphql:AuthnError);
 }
 
+@scan:Suppress {rules: [scan:HARD_CODED_SECRET], reason: "Test-only basic-auth credentials of the test user store"}
 @test:Config
 function testOnlyPost() {
     graphql:AuthnError|graphql:AuthzError? err = basicAuth.authenticate(new, request(http:GET, "reader:reader-pass"));
@@ -73,6 +75,7 @@ function testOnlyPost() {
     test:assertEquals(err.message(), "A request to a data service with auth must use POST.");
 }
 
+@scan:Suppress {rules: [scan:HARD_CODED_SECRET], reason: "Test-only basic-auth credentials of the test user store"}
 @test:Config
 function testScopes() returns error? {
     graphql:Context reader = check authenticated(basicAuth, "reader:reader-pass");
@@ -90,6 +93,7 @@ function testScopes() returns error? {
     });
 }
 
+@scan:Suppress {rules: [scan:HARD_CODED_SECRET], reason: "Test-only basic-auth credentials of the test user store"}
 @test:Config
 function testEmptyListTakesTheProviderScopes() returns error? {
     // Without provider scopes, the credential alone is enough.
