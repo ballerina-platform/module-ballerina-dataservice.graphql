@@ -19,10 +19,11 @@ import ballerina/graphql;
 // `items` for a page. Fragments are already expanded in the subfields.
 isolated function toSelectedNames(graphql:Field 'field) returns string[] {
     graphql:Field[] selection = subfieldsOf('field);
-    graphql:Field[] items = from graphql:Field sub in selection
-        where sub.getName() == "items"
-        select sub;
-    if items.length() > 0 {
+    // A record may have a field named `items` too, so only a page's `items` holds records.
+    if isPage('field.getType()) {
+        graphql:Field[] items = from graphql:Field sub in selection
+            where sub.getName() == "items"
+            select sub;
         selection = [];
         // A spread push of `graphql:Field` values stops the Ballerina 2201.14.0 compiler while it compiles
         // ballerina/graphql, so each subfield is pushed on its own.
@@ -34,6 +35,16 @@ isolated function toSelectedNames(graphql:Field 'field) returns string[] {
     }
     return from graphql:Field sub in selection
         select sub.getName();
+}
+
+// A list root field returns an `<Entity>List` page, and every other root field an `<Entity>Object`.
+isolated function isPage(graphql:__Type 'type) returns boolean {
+    graphql:__Type? ofType = 'type.ofType;
+    if 'type.kind == graphql:NON_NULL && ofType is graphql:__Type {
+        return isPage(ofType);
+    }
+    string? name = 'type.name;
+    return 'type.kind == graphql:OBJECT && name is string && name.endsWith("List");
 }
 
 // Root fields resolve concurrently, and concurrent first calls of `getSubfields` after startup can stop the program
