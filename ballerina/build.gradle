@@ -60,6 +60,8 @@ ballerina {
     packageOrganization = packageOrg
     module = packageName
     langVersion = ballerinaLangVersion
+    platform = "any"
+    testCoverageParam = "--code-coverage --coverage-format=xml"
 }
 
 task updateTomlFiles {
