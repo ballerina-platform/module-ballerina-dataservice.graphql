@@ -29,7 +29,6 @@ type AuthHandler http:ListenerFileUserStoreBasicAuthHandler|http:ListenerLdapUse
 const CALLER = "dataservice.caller";
 
 final string:RegExp WHITESPACE = re `\s`;
-final string:RegExp SPACE = re ` `;
 
 # Authenticates each request of a data service with auth, before ballerina/graphql parses and validates its document.
 public isolated class Authenticator {
@@ -188,11 +187,12 @@ isolated class Caller {
         if handler is http:ListenerJwtAuthHandler {
             return handler.authorize(<jwt:Payload>details, scopes) is ();
         }
+        // As `http:ListenerOAuth2Handler` does, the scope claim is a whitespace-separated string.
         anydata held = (<oauth2:IntrospectionResponse>details)[self.scopeKey];
         if held !is string {
             return false;
         }
-        string[] heldScopes = SPACE.split(held);
+        string[] heldScopes = WHITESPACE.split(held);
         foreach string scope in scopes {
             if heldScopes.indexOf(scope) !is () {
                 return true;

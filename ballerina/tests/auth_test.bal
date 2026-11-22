@@ -106,3 +106,25 @@ function testEmptyListTakesTheProviderScopes() returns error? {
 function testNoCallerHoldsNoScope() {
     test:assertFalse(hasScope(new, []));
 }
+
+// An OAuth2 introspection endpoint whose active token holds two scopes separated by a tab.
+service /oauth2 on new http:Listener(9597) {
+    resource function post introspect(http:Request request) returns json|error {
+        map<string> form = check request.getFormParams();
+        return form["token"] == "tab-token" ? {active: true, scope: "hr:read\tdepartments:read"} : {active: false};
+    }
+}
+
+final Authenticator oauth2Auth = check new ([
+    {oauth2IntrospectionConfig: {url: "http://localhost:9597/oauth2/introspect"}}
+]);
+
+@test:Config
+function testOAuth2ScopesSplitOnAnyWhitespace() returns error? {
+    http:Request bearer = request(http:POST);
+    bearer.setHeader("Authorization", "Bearer tab-token");
+    graphql:Context ctx = new;
+    check oauth2Auth.authenticate(ctx, bearer);
+    test:assertTrue(hasScope(ctx, ["departments:read"]));
+    test:assertFalse(hasScope(ctx, ["hr:admin"]));
+}
