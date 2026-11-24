@@ -78,8 +78,23 @@ function testRelationBesideAnItemsField(string document, string path) returns er
 
 function relationDocuments() returns [string, string][] => [
     ["{ order { items department { name } } }", "order"],
-    ["{ orders { items { items department { name } } } }", "orders"]
+    ["{ orders { items { items department { name } } } }", "orders"],
+    ["{ order { d: department { name } } }", "order"],
+    ["{ o: order { department { name } } }", "o"],
+    ["{ order { ...withDepartment } } fragment withDepartment on TestOrderObject { department { name } }", "order"],
+    ["{ order { ... on TestOrderObject { department { name } } } }", "order"],
+    ["{ orders { items { ...withDepartment } } } fragment withDepartment on TestOrderObject { department { name } }",
+        "orders"],
+    ["{ order { department @skip(if: false) { name } } }", "order"],
+    ["{ order { department @include(if: true) { name } } }", "order"]
 ];
+
+@test:Config
+function testSkippedRelationNeedsNoRelationScope() returns error? {
+    json response = check postOrderQuery("{ order { items department @skip(if: true) { name } } " +
+            "orders { items { items department @include(if: false) { name } } } }");
+    test:assertEquals(response, {data: {'order: {items: 3}, orders: {items: [{items: 3}]}}});
+}
 
 @test:Config
 function testScalarItemsFieldNeedsNoRelationScope() returns error? {

@@ -235,6 +235,7 @@ public type RelationScopes record {|
 |};
 
 # Checks that the caller may read each relation that a root field's selection reads, once, before the read.
+# Only the relations of the root field's own records are checked, since a related record has no relation fields.
 #
 # + ctx - The request context, which holds the caller
 # + 'field - The root field
