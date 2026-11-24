@@ -49,6 +49,7 @@ isolated function isPage(graphql:__Type 'type) returns boolean {
 
 // Root fields resolve concurrently, and concurrent first calls of `getSubfields` after startup can stop the program
 // with a `TypeCastError` from `cloneReadOnly` inside ballerina/graphql, so the calls are serialized.
+// https://github.com/ballerina-platform/ballerina-lang/issues/44806
 isolated function subfieldsOf(graphql:Field 'field) returns graphql:Field[] {
     lock {
         return 'field.getSubfields() ?: [];

@@ -196,7 +196,6 @@ A data service with auth authenticates each request with `Authenticator` in the 
 5. `checkRelationScopes(graphql:Context ctx, graphql:Field 'field, string entity, map<RelationScopes> relations, string[]? entityScopes = ()) returns Error?` walks the selection of the root field, through its `items` when the field returns a page, an `<Entity>List`, and through fragments, and for the first selected relation that `relations` names whose `RelationScopes.scopes` the caller holds none of, returns the `FORBIDDEN` error of `dataservice:toForbiddenError`. With `entityScopes`, which a mutation passes, a selected relation also needs one of the entity's own `read` scopes, and the caller without one gets the error of `dataservice:toNoScopeError`. The check runs once per root field, so a page has one error, not one per record. It reads only the relations of the root field's own records, one level deep, because a related record, an `<Entity>RelatedObject`, has no relation fields; a related record that has relation fields needs this walk to recurse.
 6. `RelationScopes` holds `target`, the name of the related entity, and `scopes`, its `read` scopes.
 7. For an OAuth2 provider, a scope is held when it is one of the whitespace-separated values of the introspection response's `scopeKey` claim, as `http:ListenerOAuth2Handler` checks it.
-8. The calls to `graphql:Field.getSubfields()` are serialized, because concurrent first calls of root fields can stop the program inside `ballerina/graphql`.
 
 ### 7.3. Errors
 
