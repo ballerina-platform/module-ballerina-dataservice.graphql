@@ -95,13 +95,13 @@ public type Error distinct graphql:ServiceError;
 | `toUpdateError(error err, string entity, dataservice:KeyValue[] key) returns Error?` | Updating a record | `NOT_FOUND`, `CONFLICT`, `CONSTRAINT_VIOLATION`, `INTERNAL`, or `()` |
 | `toDeleteError(error err, string entity, dataservice:KeyValue[] key) returns Error` | Deleting a record | `NOT_FOUND`, `CONSTRAINT_VIOLATION`, `INTERNAL` |
 | `toInvalidInput(dataservice:ConversionError err, string entity, string 'field) returns Error` | A value that does not parse | `INVALID_INPUT` |
-| `toNullError(string entity, string 'field) returns Error` | `null` on an input field that cannot hold it | `INVALID_INPUT` |
+| `toSetAndUnsetError(string entity, string 'field) returns Error` | A patch that both sets a field and lists it in `unset` | `INVALID_INPUT` |
 | `toError(dataservice:DataserviceError body) returns Error` | An error body of `ballerina/dataservice`, such as from `dataservice:checkCreateSize`, `dataservice:checkConstraints` or `dataservice:checkFiniteKey` | The body's code |
 
 1. Each per-operation function maps the persist error with `dataservice:toErrorBody`, given the entity's name, the operation's name and, where the operation has one, the record's key. An error whose category is not among an operation's codes is the `INTERNAL` error, and is logged.
 2. `toUpdateError` returns `()` for a `persist:ReadBackError`, an update that is saved but cannot be read back, and logs it. The generated patch then returns `null` with no field error.
 3. `toInvalidInput` builds the message `The field '<field>' of the entity '<Entity>' is not <format>.`, where `<format>` is the `format` of the conversion error: `an ISO 8601 date`, `an ISO 8601 time`, `an ISO 8601 date-time` or `a base64 string`.
-4. `toNullError` builds the message `The field '<field>' of the entity '<Entity>' cannot be null.`
+4. `toSetAndUnsetError` builds the message `The field '<field>' of the entity '<Entity>' cannot be both set and unset.`
 5. As `dataservice:toErrorBody` defines, the detail of a constraint violation or an internal error is logged and not returned to the caller.
 6. The error is logged once, with the entity's name and the operation's name. The operation is `get many` for `toListError`, `get one` for `toGetError`, `create`, `patch one` and `delete one`. A relation passes `get related` to `toListError`.
 

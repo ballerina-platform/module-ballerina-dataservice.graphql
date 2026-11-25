@@ -84,9 +84,9 @@ function testDeleteErrors() {
 }
 
 @test:Config
-function testNullError() {
-    test:assertEquals(toNullError("Employee", "name").detail(), {
-        message: "The field 'name' of the entity 'Employee' cannot be null.",
+function testSetAndUnsetError() {
+    test:assertEquals(toSetAndUnsetError("Employee", "email").detail(), {
+        message: "The field 'email' of the entity 'Employee' cannot be both set and unset.",
         extensions: {code: "INVALID_INPUT"}
     });
 }

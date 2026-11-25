@@ -109,14 +109,14 @@ public isolated function toDeleteError(error err, string entity, dataservice:Key
         toInternalError(err, entity, DELETE_ONE, body);
 }
 
-# Maps `null` on an input field that cannot hold it to the `INVALID_INPUT` error.
+# Maps a patch that both sets and unsets a field to the `INVALID_INPUT` error.
 #
 # + entity - The name of the entity
 # + 'field - The name of the field
 # + return - The `INVALID_INPUT` error
-public isolated function toNullError(string entity, string 'field) returns Error => toError({
+public isolated function toSetAndUnsetError(string entity, string 'field) returns Error => toError({
     code: dataservice:INVALID_INPUT,
-    message: string `The field '${'field}' of the entity '${entity}' cannot be null.`
+    message: string `The field '${'field}' of the entity '${entity}' cannot be both set and unset.`
 });
 
 # Maps an error body of `ballerina/dataservice`, such as from `dataservice:checkCreateSize`, to its error.
