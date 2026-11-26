@@ -71,12 +71,30 @@ public isolated function toKeyOrder(map<anydata>[] rows, dataservice:Entity enti
     }
     string[] fields = related[0].fields;
     string[] targetFields = related[0].targetFields;
+    // The first row of a link is kept, as `ballerina/dataservice` keeps it when it reads a relation.
     map<map<anydata>> byLink = {};
     foreach map<anydata> row in rows {
-        byLink[linkText(from string name in targetFields select row[name])] = row;
+        string text = linkText(from string name in targetFields select row[name]);
+        if !byLink.hasKey(text) {
+            byLink[text] = row;
+        }
     }
     return from map<anydata> link in links
-        select byLink[linkText(from string name in fields select link[name])];
+        select findByLink(byLink, rows, targetFields, from string name in fields select link[name]);
+}
+
+isolated function findByLink(map<map<anydata>> byLink, map<anydata>[] rows, string[] targetFields, anydata[] link)
+        returns map<anydata>? {
+    map<anydata>? row = byLink[linkText(link)];
+    // `==` also matches a float or decimal written differently, such as `1.5d` and `1.50d`.
+    if row is () && link.some(value => value is float|decimal) {
+        foreach map<anydata> candidate in rows {
+            if (from string name in targetFields select candidate[name]) == link {
+                return candidate;
+            }
+        }
+    }
+    return row;
 }
 
 // The text form of a link, as a key of a map; `toJsonString` keeps a string's quotes, so `1` and `"1"` differ.

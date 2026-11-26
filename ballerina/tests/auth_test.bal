@@ -15,6 +15,8 @@
 // under the License.
 import ballerina/graphql;
 import ballerina/http;
+import ballerina/jwt;
+import ballerina/random;
 import ballerina/scan;
 import ballerina/test;
 
@@ -127,4 +129,59 @@ function testOAuth2ScopesSplitOnAnyWhitespace() returns error? {
     check oauth2Auth.authenticate(ctx, bearer);
     test:assertTrue(hasScope(ctx, ["departments:read"]));
     test:assertFalse(hasScope(ctx, ["hr:admin"]));
+}
+
+// A JWT secret made at run time, so the tests hold no secret.
+final string jwtSecret = check randomSecret();
+
+function randomSecret() returns string|error {
+    string secret = "";
+    foreach int i in 0 ..< 4 {
+        secret += (check random:createIntInRange(100000000, 999999999)).toString();
+    }
+    return secret;
+}
+
+final graphql:JwtValidatorConfig & readonly jwtValidator = {issuer: "dataservice-test", signatureConfig: {secret: jwtSecret}};
+
+function bearer(string token) returns http:Request {
+    http:Request withToken = request(http:POST);
+    withToken.setHeader("Authorization", "Bearer " + token);
+    return withToken;
+}
+
+function issue(string scope, string secret = jwtSecret) returns string|error => jwt:issue({
+    issuer: "dataservice-test",
+    customClaims: {scope},
+    signatureConfig: {algorithm: jwt:HS256, config: secret}
+});
+
+@test:Config
+function testJwt() returns error? {
+    Authenticator jwtAuth = check new ([{jwtValidatorConfig: jwtValidator}]);
+    graphql:Context ctx = new;
+    check jwtAuth.authenticate(ctx, bearer(check issue("hr:read")));
+    test:assertTrue(hasScope(ctx, ["hr:read"]));
+    test:assertFalse(hasScope(ctx, ["hr:admin"]));
+    string forged = check issue("hr:admin", check randomSecret());
+    test:assertTrue(jwtAuth.authenticate(new, bearer(forged)) is graphql:AuthnError);
+}
+
+@test:Config
+function testFirstProviderThatAcceptsDecides() returns error? {
+    string token = check issue("hr:read");
+    Authenticator adminFirst = check new ([
+        {jwtValidatorConfig: jwtValidator, scopes: "hr:admin"},
+        {jwtValidatorConfig: jwtValidator, scopes: "hr:read"}
+    ]);
+    graphql:Context ctx = new;
+    check adminFirst.authenticate(ctx, bearer(token));
+    test:assertFalse(hasScope(ctx, []));
+    Authenticator readerFirst = check new ([
+        {jwtValidatorConfig: jwtValidator, scopes: "hr:read"},
+        {jwtValidatorConfig: jwtValidator, scopes: "hr:admin"}
+    ]);
+    ctx = new;
+    check readerFirst.authenticate(ctx, bearer(token));
+    test:assertTrue(hasScope(ctx, []));
 }

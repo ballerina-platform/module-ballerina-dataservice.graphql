@@ -151,6 +151,8 @@ A generated service declares its runtime settings as one configurable record, `d
 
 The `filter` and `sort` arguments of a list and of a to-many relation are input types of the generated service, whose fields are the input types of this package. `toQuery` and `toRelatedQuery` turn the arguments into the `dataservice:Query` of the persist client call. `toKeyOrder` orders the related records of a to-one relation's dataloader batch.
 
+A to-many relation is not batched: each record reads its related records with its own `filter`, `sort`, `size` and `offset`. A loader that batches it must key on those arguments as well as the link.
+
 ### 5.2. Filter and sort inputs
 
 | Input type | Field type | Operators |
@@ -170,7 +172,7 @@ Each has a `Nullable` variant for a nullable field, such as `StringNullableFilte
 2. A filter field or operator that is `()` sets no condition, and a field whose operators are all `()` sets none.
 3. Each `sort` entry must set exactly one field; otherwise the function returns the `INVALID_INPUT` error `Each entry of 'sort' must name exactly one field.` A field set to `DESC` sorts descending.
 4. An option that `ballerina/dataservice` rejects, such as a field named twice in `sort`, a `size` below 1 or an `offset` below 0, is the `INVALID_INPUT` error with its message. A filter value that does not parse is the error of `toInvalidInput`, naming the field and, for a relation, the related entity.
-5. `toKeyOrder(map<anydata>[] rows, dataservice:Entity entity, string relation, map<anydata>[] links) returns (map<anydata>?)[]` returns, for each link in order, the row of `rows` whose fields named by the relation's `targetFields` equal the link's fields named by its `fields`, or `()` when there is none. Values are compared by their JSON form, so the string `"1"` and the number `1` differ. It panics when the entity has no such relation.
+5. `toKeyOrder(map<anydata>[] rows, dataservice:Entity entity, string relation, map<anydata>[] links) returns (map<anydata>?)[]` returns, for each link in order, the row of `rows` whose fields named by the relation's `targetFields` equal the link's fields named by its `fields`, or `()` when there is none. Values are compared by their JSON form, so the string `"1"` and the number `1` differ; a link with a float or decimal value that matches no JSON form is compared with `==`, so `1.5d` matches `1.50d`. When several rows have a link, the first is returned. It panics when the entity has no such relation.
 
 ## 6. Floating-point values
 

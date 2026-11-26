@@ -93,6 +93,19 @@ function testKeyOrderTellsStringsFromNumbers() {
 }
 
 @test:Config
+function testKeyOrderMatchesADecimalOfAnotherScale() {
+    map<anydata>[] rows = [{id: 1.50d, name: "Research"}];
+    test:assertEquals(toKeyOrder(rows, staff, "department", [{departmentId: 1.5d}, {departmentId: 2.5d}]),
+            [{id: 1.50d, name: "Research"}, ()]);
+}
+
+@test:Config
+function testKeyOrderKeepsTheFirstRowOfALink() {
+    map<anydata>[] rows = [{id: 1, name: "Research"}, {id: 1, name: "Sales"}];
+    test:assertEquals(toKeyOrder(rows, staff, "department", [{departmentId: 1}]), [{id: 1, name: "Research"}]);
+}
+
+@test:Config
 function testRelatedQueryNamesTheRelatedEntity() {
     record {|IntFilter? id;|} filter = {id: ()};
     dataservice:Query|Error query = toRelatedQuery(staff, "colleagues", {departmentId: 1}, page, filter,

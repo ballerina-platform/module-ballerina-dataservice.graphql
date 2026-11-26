@@ -20,10 +20,19 @@ import ballerina/test;
 
 final readonly & map<RelationScopes> orderRelations = {"department": {target: "Department", scopes: ["hr:admin"]}};
 
+@scan:Suppress {rules: [scan:UNUSED_FUNCTION_PARAMETER], reason: "The signature of a contextInit function"}
 isolated function initOrderContext(http:RequestContext requestContext, http:Request request)
         returns graphql:Context|error {
     graphql:Context ctx = new;
     check basicAuth.authenticate(ctx, request);
+    return ctx;
+}
+
+@scan:Suppress {rules: [scan:UNUSED_FUNCTION_PARAMETER], reason: "The signature of a contextInit function"}
+isolated function initAdminByDefaultContext(http:RequestContext requestContext, http:Request request)
+        returns graphql:Context|error {
+    graphql:Context ctx = new;
+    check adminByDefault.authenticate(ctx, request);
     return ctx;
 }
 
@@ -54,13 +63,36 @@ service /orders on new graphql:Listener(9598) {
         check checkRelationScopes(ctx, 'field, "Order", orderRelations);
         return {items: [new], hasMore: false};
     }
+
+    // As a mutation's result, which also needs the entity's own `read` scopes when a relation is selected.
+    isolated resource function get adminOrder(graphql:Context ctx, graphql:Field 'field) returns TestOrderObject?|error {
+        check checkRelationScopes(ctx, 'field, "Order", orderRelations, ["hr:admin"]);
+        return new;
+    }
+
+    isolated resource function get readerOrder(graphql:Context ctx, graphql:Field 'field)
+            returns TestOrderObject?|error {
+        check checkRelationScopes(ctx, 'field, "Order", orderRelations, ["hr:read"]);
+        return new;
+    }
+}
+
+final readonly & map<RelationScopes> providerScopedRelations = {"department": {target: "Department", scopes: []}};
+
+@graphql:ServiceConfig {contextInit: initAdminByDefaultContext}
+service /providerScoped on new graphql:Listener(9599) {
+    isolated resource function get 'order(graphql:Context ctx, graphql:Field 'field) returns TestOrderObject?|error {
+        check checkRelationScopes(ctx, 'field, "Order", providerScopedRelations);
+        return new;
+    }
 }
 
 final http:Client orderClient = check new ("http://localhost:9598/orders");
+final http:Client providerScopedClient = check new ("http://localhost:9599/providerScoped");
 
 @scan:Suppress {rules: [scan:HARD_CODED_SECRET], reason: "Test-only basic-auth credentials of the test user store"}
-function postOrderQuery(string document) returns json|error {
-    return orderClient->post("", {query: document}, {"Authorization": "Basic " + "reader:reader-pass".toBytes().toBase64()});
+function postOrderQuery(string document, http:Client 'client = orderClient) returns json|error {
+    return 'client->post("", {query: document}, {"Authorization": "Basic " + "reader:reader-pass".toBytes().toBase64()});
 }
 
 @test:Config {dataProvider: relationDocuments}
@@ -86,8 +118,65 @@ function relationDocuments() returns [string, string][] => [
     ["{ orders { items { ...withDepartment } } } fragment withDepartment on TestOrderObject { department { name } }",
         "orders"],
     ["{ order { department @skip(if: false) { name } } }", "order"],
-    ["{ order { department @include(if: true) { name } } }", "order"]
+    ["{ order { department @include(if: true) { name } } }", "order"],
+    ["{ orders { a: items { items } b: items { department { name } } } }", "orders"],
+    ["{ orders { a: items { department { name } } b: items { items } } }", "orders"]
 ];
+
+@test:Config
+function testEntityScopesAreCheckedFirst() returns error? {
+    json response = check postOrderQuery("{ adminOrder { department { name } } }");
+    test:assertEquals(check response.errors, [
+        {
+            message: "The caller holds no scope that the operation needs.",
+            locations: [{line: 1, column: 3}],
+            path: ["adminOrder"],
+            extensions: {code: "FORBIDDEN"}
+        }
+    ]);
+}
+
+@test:Config
+function testRelationScopesFollowTheEntityScopes() returns error? {
+    json response = check postOrderQuery("{ readerOrder { department { name } } }");
+    test:assertEquals(check response.errors, [
+        {
+            message: "The relation 'department' of the entity 'Order' needs a 'read' scope of the entity 'Department'.",
+            locations: [{line: 1, column: 3}],
+            path: ["readerOrder"],
+            extensions: {code: "FORBIDDEN"}
+        }
+    ]);
+}
+
+@test:Config
+function testEntityScopesWithoutARelation() returns error? {
+    json response = check postOrderQuery("{ adminOrder { items } }");
+    test:assertEquals(response, {data: {adminOrder: {items: 3}}});
+}
+
+@test:Config
+function testRelationTakesTheProviderScopes() returns error? {
+    json response = check postOrderQuery("{ order { department { name } } }", providerScopedClient);
+    test:assertEquals(check response.errors, [
+        {
+            message: "The relation 'department' of the entity 'Order' needs a 'read' scope of the entity 'Department'.",
+            locations: [{line: 1, column: 3}],
+            path: ["order"],
+            extensions: {code: "FORBIDDEN"}
+        }
+    ]);
+}
+
+@test:Config
+function testMissingCredentialIsAnHttpError() returns error? {
+    http:Response response = check orderClient->post("", {query: "{ order { items } }"});
+    test:assertEquals(response.statusCode, 400);
+    json body = check response.getJsonPayload();
+    test:assertEquals(check body.errors, [
+        {message: "The request needs a valid credential.", extensions: {code: "UNAUTHENTICATED"}}
+    ]);
+}
 
 @test:Config
 function testSkippedRelationNeedsNoRelationScope() returns error? {
