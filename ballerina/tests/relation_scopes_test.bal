@@ -120,7 +120,10 @@ function relationDocuments() returns [string, string][] => [
     ["{ order { department @skip(if: false) { name } } }", "order"],
     ["{ order { department @include(if: true) { name } } }", "order"],
     ["{ orders { a: items { items } b: items { department { name } } } }", "orders"],
-    ["{ orders { a: items { department { name } } b: items { items } } }", "orders"]
+    ["{ orders { a: items { department { name } } b: items { items } } }", "orders"],
+    ["{ orders { items { items } ... on TestOrderList { items { department { name } } } } }", "orders"],
+    ["{ orders { items { items } ...withDepartment } } fragment withDepartment on TestOrderList { items { department { name } } }",
+        "orders"]
 ];
 
 @test:Config
